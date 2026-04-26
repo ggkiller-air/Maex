@@ -21,9 +21,22 @@ import sys
 import traceback
 from pathlib import Path
 
-_SRC = Path(__file__).resolve().parent.parent  # src/
-if str(_SRC) not in sys.path:
-    sys.path.insert(0, str(_SRC))
+_HERE = Path(__file__).resolve().parent  # package root (e.g. /path/to/Maex/)
+
+# Register this directory as the 'maex' package regardless of directory name.
+# Needed when running `python runner.py` directly from inside the directory,
+# where the directory name may differ in case (e.g. "Maex" vs "maex").
+try:
+    import maex as _maex_test  # noqa: F401
+except ImportError:
+    import types as _t
+    _m = _t.ModuleType("maex")
+    _m.__path__ = [str(_HERE)]
+    _m.__package__ = "maex"
+    sys.modules["maex"] = _m
+
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
 
 # NOTE: the legacy `src/experiment/utils` path is no longer added to sys.path.
 # Importing `UnifiedLogger` from the top-level `logger` module previously

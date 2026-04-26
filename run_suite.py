@@ -39,9 +39,20 @@ from typing import Dict, List, Optional, Tuple
 # Constants
 # ---------------------------------------------------------------------------
 
-_EXP_SYS = Path(__file__).resolve().parent
-_SRC     = _EXP_SYS.parent
-_REPO    = _SRC.parent
+_EXP_SYS = Path(__file__).resolve().parent  # package root (e.g. /path/to/Maex/)
+
+# Register this directory as the 'maex' package regardless of directory name.
+try:
+    import maex as _maex_test  # noqa: F401
+except ImportError:
+    import types as _t
+    _m = _t.ModuleType("maex")
+    _m.__path__ = [str(_EXP_SYS)]
+    _m.__package__ = "maex"
+    sys.modules["maex"] = _m
+
+if str(_EXP_SYS) not in sys.path:
+    sys.path.insert(0, str(_EXP_SYS))
 
 # Paper's 8 tasks per env (from experiment/PEFA/main.py docstring).
 PAPER_TASKS: Dict[str, List[int]] = {
@@ -85,7 +96,7 @@ def _build_cmd(job: Dict) -> List[str]:
     # -u forces child Python to use unbuffered stdout/stderr, so parent sees
     # lines in real time instead of waiting for an 8KB pipe-buffer flush.
     cmd = [
-        sys.executable, "-u", "-m", "maex.runner",
+        sys.executable, "-u", str(_EXP_SYS / "runner.py"),
         "--method",      job["method"],
         "--env",         job["env"],
         "--task",        *[str(t) for t in job["tasks"]],
@@ -131,7 +142,7 @@ def _run_job(job: Dict, stream_output: bool = True) -> Tuple[Dict, int, float]:
             # Prefix every child line so parallel outputs stay readable.
             proc = subprocess.Popen(
                 cmd,
-                cwd=str(_SRC),
+                cwd=str(_EXP_SYS),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 bufsize=1,
@@ -143,7 +154,7 @@ def _run_job(job: Dict, stream_output: bool = True) -> Tuple[Dict, int, float]:
                 print(f"{label} {line.rstrip()}", flush=True)
             rc = proc.wait()
         else:
-            rc = subprocess.call(cmd, cwd=str(_SRC), env=child_env)
+            rc = subprocess.call(cmd, cwd=str(_EXP_SYS), env=child_env)
     except KeyboardInterrupt:
         raise
     except Exception as exc:
