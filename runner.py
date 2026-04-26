@@ -17,26 +17,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 import traceback
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent  # package root (e.g. /path/to/Maex/)
-
-# Register this directory as the 'maex' package regardless of directory name.
-# Needed when running `python runner.py` directly from inside the directory,
-# where the directory name may differ in case (e.g. "Maex" vs "maex").
-try:
-    import maex as _maex_test  # noqa: F401
-except ImportError:
-    import types as _t
-    _m = _t.ModuleType("maex")
-    _m.__path__ = [str(_HERE)]
-    _m.__package__ = "maex"
-    sys.modules["maex"] = _m
-
-if str(_HERE) not in sys.path:
-    sys.path.insert(0, str(_HERE))
 
 # NOTE: the legacy `src/experiment/utils` path is no longer added to sys.path.
 # Importing `UnifiedLogger` from the top-level `logger` module previously
@@ -44,15 +28,15 @@ if str(_HERE) not in sys.path:
 # newer kwargs like `reasoning_tokens`. The canonical source is now in
 # maex.utils only.
 
-from maex.env.coherent_env import CoherentEnv
-from maex.agent.react_agent import ReactAgent
-from maex.agent.crms_agent import CRMSAgent
-from maex.agent.pefa_agent import PEFAAgent
-from maex.agent.pefa_wo_history_agent import PEFAWoHistoryAgent
-from maex.agent.drms_agent import DRMSAgent
-from maex.utils.reporting import generate_html_report, generate_multi_task_report
-from maex.utils.llm_log import generate_llm_log
-from maex.utils.unified_logger import UnifiedLogger
+from env.coherent_env import CoherentEnv
+from agent.react_agent import ReactAgent
+from agent.crms_agent import CRMSAgent
+from agent.pefa_agent import PEFAAgent
+from agent.pefa_wo_history_agent import PEFAWoHistoryAgent
+from agent.drms_agent import DRMSAgent
+from utils.reporting import generate_html_report, generate_multi_task_report
+from utils.llm_log import generate_llm_log
+from utils.unified_logger import UnifiedLogger
 
 _EXP_SYS = Path(__file__).resolve().parent
 _ENV_DIR  = _EXP_SYS / "env"

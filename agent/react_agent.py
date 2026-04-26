@@ -78,7 +78,7 @@ _AGENT_SYSTEM = {
     ),
 }
 
-from maex.utils.pricing import cost_for
+from utils.pricing import cost_for
 
 # Models that burn completion-token budget on hidden reasoning — a too-small
 # max_tokens will return empty `content`. We warn when this pattern is detected.

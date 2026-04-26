@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import backoff
 from openai import OpenAI, OpenAIError
 
-from maex.utils.pricing import cost_for
+from utils.pricing import cost_for
 
 _PROMPT_DIR = Path(__file__).resolve().parents[1] / "prompt"
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 import copy
 from typing import Any, Dict, List, Optional, Tuple
 
-from maex.env.get_env_info import Get_env_info
+from env.get_env_info import Get_env_info
 
 
 class CoherentEnv:

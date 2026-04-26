@@ -1,4 +1,4 @@
-"""Model pricing for the third-party API we use (lonlie.plus7.plus).
+"""Model pricing for the third-party API we use.
 
 Prices are in **USD per 1M tokens** (input, output). Keep this table in sync
 with reference/test_openai_api.py — the source of truth is the proxy's

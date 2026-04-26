@@ -9,16 +9,16 @@ Defaults reproduce the paper's task subset (8 tasks × 5 envs = 40 tasks).
 
 Usage:
     # Dry run: print what would be executed
-    python -m maex.run_suite --dry-run
+    python run_suite.py --dry-run
 
     # Single method, sequential (default)
-    python -m maex.run_suite --methods pefa
+    python run_suite.py --methods pefa
 
     # All five methods, 2 subprocesses in parallel
-    python -m maex.run_suite --methods react pefa pefa_wo_history crms drms --parallel 2
+    python run_suite.py --methods react pefa pefa_wo_history crms drms --parallel 2
 
     # Custom task subset for one env (overrides paper default for that env)
-    python -m maex.run_suite --methods react --envs env0 --tasks-env0 0 1 2
+    python run_suite.py --methods react --envs env0 --tasks-env0 0 1 2
 """
 
 from __future__ import annotations
@@ -39,20 +39,10 @@ from typing import Dict, List, Optional, Tuple
 # Constants
 # ---------------------------------------------------------------------------
 
-_EXP_SYS = Path(__file__).resolve().parent  # package root (e.g. /path/to/Maex/)
-
-# Register this directory as the 'maex' package regardless of directory name.
-try:
-    import maex as _maex_test  # noqa: F401
-except ImportError:
-    import types as _t
-    _m = _t.ModuleType("maex")
-    _m.__path__ = [str(_EXP_SYS)]
-    _m.__package__ = "maex"
-    sys.modules["maex"] = _m
-
-if str(_EXP_SYS) not in sys.path:
-    sys.path.insert(0, str(_EXP_SYS))
+_EXP_SYS = Path(__file__).resolve().parent
+_SRC     = _EXP_SYS.parent
+_REPO    = _SRC.parent
+_RUNNER  = _EXP_SYS / "runner.py"
 
 # Paper's 8 tasks per env (from experiment/PEFA/main.py docstring).
 PAPER_TASKS: Dict[str, List[int]] = {
@@ -96,7 +86,9 @@ def _build_cmd(job: Dict) -> List[str]:
     # -u forces child Python to use unbuffered stdout/stderr, so parent sees
     # lines in real time instead of waiting for an 8KB pipe-buffer flush.
     cmd = [
-        sys.executable, "-u", str(_EXP_SYS / "runner.py"),
+        # Call runner.py directly to avoid package-name/case assumptions.
+        # This works even when the project directory is named "Maex".
+        sys.executable, "-u", str(_RUNNER),
         "--method",      job["method"],
         "--env",         job["env"],
         "--task",        *[str(t) for t in job["tasks"]],

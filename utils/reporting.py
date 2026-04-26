@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import List
 
-from maex.utils.pricing import MODEL_PRICING
+from utils.pricing import MODEL_PRICING
 
 
 def _build_html(tasks: List[dict]) -> str:
