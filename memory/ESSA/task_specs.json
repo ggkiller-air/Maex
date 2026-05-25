@@ -1,0 +1,58 @@
+{
+  "__comment__": "Maex x LightWM ESSA task-family specs. One entry per task family. Each entry covers all instances of the family — instance-specific parameters (target receptacle, target id, etc.) are injected via subtask caller_mapping at call time, not duplicated per task.",
+  "land_on_receptacle": {
+    "__comment__": "Quadrotor takes off, flies to a target receptacle (possibly across rooms), and lands on it. No payload. Covers env0 task 0 (high kitchen table) and task 1 (dining table).",
+    "task_state_schema": {
+      "task_type": "land_on_receptacle",
+      "goal_template": "the <agent_class>(<agent_id>) lands on the <target_receptacle>(<target_receptacle_id>)",
+      "success_precondition_template": [
+        "on(<agent_class>(<agent_id>), <target_receptacle>(<target_receptacle_id>))"
+      ],
+      "fields": {
+        "goal": "string (concise normalized goal string)",
+        "agent_class": "string (e.g. 'quadrotor')",
+        "agent_id": "int (graph node id of the agent)",
+        "target_receptacle": "string (surface form, e.g. 'high kitchen table')",
+        "target_receptacle_id": "int (graph node id of the target receptacle, e.g. 35)",
+        "agent_flight_state": "string ('LAND'|'FLYING'); read from observation 'Now my state is: ...'",
+        "agent_current_room_id": "int|null (current room id, parsed from 'I am INSIDE the <room>(<id>)' or 'Now I am in the <room>(<id>)')",
+        "agent_position": "string|null (e.g. 'on <childroom floor>(3)' or 'above <high kitchen table>(35)'; canonical text of the agent's primary spatial edge)",
+        "agent_above_target": "bool (true iff observation contains 'I am ABOVE the <target_receptacle>(<target_receptacle_id>)')",
+        "landed_on_target": "bool (terminal success flag)"
+      }
+    },
+    "init_rules": [
+      "goal: MUST be a concise normalized string (e.g., 'the quadrotor(22) lands on the high kitchen table(35)').",
+      "agent_class / agent_id: parse from goal_instruction. The unique <class>(<id>) token that appears as the SUBJECT of 'lands on' is the actor.",
+      "target_receptacle / target_receptacle_id: parse the <class>(<id>) token that appears as the OBJECT of 'lands on' in goal_instruction.",
+      "agent_flight_state: read from INITIAL_OBSERVATION substring 'Now my state is: <X>.' — at episode start, expected value is 'LAND'.",
+      "agent_current_room_id: read the id from INITIAL_OBSERVATION substring 'I am INSIDE the <room_class>(<room_id>).'.",
+      "agent_position: produce the canonical string from INITIAL_OBSERVATION. Prefer 'I am ON the <X>(<id>)' (then write 'on <X>(<id>)'). If only 'I am INSIDE the <room>(<id>)' is present (no ON edge), write 'inside <room>(<id>)'.",
+      "agent_above_target: MUST be false at init.",
+      "landed_on_target: MUST be false at init."
+    ],
+    "base_subtask_sequence": [
+      {
+        "name": "takeoff",
+        "subtask_type": "QUAD_TAKEOFF",
+        "signature": "quad_takeoff(<agent_class>(<agent_id>)) -> <agent_flight_state=FLYING>",
+        "expects": ["agent_class", "agent_id", "agent_position"],
+        "produces": ["agent_flight_state"]
+      },
+      {
+        "name": "flyToRecep",
+        "subtask_type": "QUAD_FLY_TO_RECEP",
+        "signature": "quad_fly_to_recep(<agent_class>(<agent_id>), <target_receptacle>(<target_receptacle_id>)) -> <agent_above_target=true>",
+        "expects": ["agent_class", "agent_id", "target_receptacle", "target_receptacle_id", "agent_flight_state", "agent_current_room_id"],
+        "produces": ["agent_above_target", "agent_current_room_id", "agent_position"]
+      },
+      {
+        "name": "landOnRecep",
+        "subtask_type": "QUAD_LAND_ON_RECEP",
+        "signature": "quad_land_on_recep(<agent_class>(<agent_id>), <target_receptacle>(<target_receptacle_id>)) -> <landed_on_target=true>",
+        "expects": ["agent_class", "agent_id", "target_receptacle", "target_receptacle_id", "agent_above_target"],
+        "produces": ["landed_on_target"]
+      }
+    ]
+  }
+}

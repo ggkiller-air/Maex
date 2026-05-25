@@ -1,0 +1,197 @@
+{
+  "__comment__": "Maex x LightWM ESSA subtask specs. Each entry defines one subtask type used by the land_on_receptacle family (env0 task 0 / task 1). Fields follow LightWM's subtask spec contract — see /root/Project/AgentGateway/LightWM/memory/ESSA/subtask_specs.json for reference patterns.",
+
+  "QUAD_TAKEOFF": {
+    "__comment__": "Quadrotor goes LAND -> FLYING from its current ON surface. 1 env step.",
+    "goal_template": "<agent_class>(<agent_id>) takes off from <takeoff_surface>",
+    "output_para": ["agent_flight_state"],
+    "done_when_all": ["return.agent_flight_state"],
+    "base_actions": [
+      {
+        "action": "[takeoff_from] <surface>",
+        "when": "Parse the <surface_class>(<surface_id>) token from memory.takeoff_surface (it is a string like 'on <childroom floor>(3)'). Output exactly: [takeoff_from] <surface_class>(<surface_id>)."
+      }
+    ],
+    "executor_sys_rules": [
+      "You MUST output exactly one action of the form: [takeoff_from] <surface_class>(<surface_id>) where the <surface_class> and <surface_id> are parsed from memory.takeoff_surface.",
+      "memory.takeoff_surface looks like 'on <childroom floor>(3)' — the <surface_class> is 'childroom floor' and <surface_id> is 3.",
+      "Do NOT output [movetowards] or [land_on] in this subtask. NEVER output fake actions like 'complete subtask'."
+    ],
+    "caller_mapping": {
+      "inject_context_from_task_state": [
+        {"from": "agent_class", "to": "agent_class"},
+        {"from": "agent_id", "to": "agent_id"},
+        {"from": "agent_position", "to": "agent_position"}
+      ],
+      "map_context_to_memory": [
+        {"from": "agent_class", "to": "agent_class"},
+        {"from": "agent_id", "to": "agent_id"},
+        {"from": "agent_position", "to": "takeoff_surface"}
+      ]
+    },
+    "patch_ops_policy": {
+      "allowed": [
+        {"op": "set", "path": "return.agent_flight_state"}
+      ]
+    },
+    "sys_output_format": "NOTE: Output JSON only. You do NOT output context.\n\n[OUTPUT PROTOCOL]\n- Return JSON ONLY.\n- Top-level MUST be an object with key \"patch_ops\" (a list).\n- Even for ONE op, you MUST wrap it: {\"patch_ops\":[{...}]}\n- If you output a single op object without \"patch_ops\", the program will DISCARD your update.\n\n[OUTPUT FORMAT]\n{\n  \"patch_ops\": [\n    {\n      \"op\": \"set\",\n      \"path\": \"return.agent_flight_state\",\n      \"value\": \"FLYING\"\n    }\n  ]\n}",
+    "operation_space": "set_flying:\n- precondition: OBSERVATION contains the substring 'Now my state is: FLYING'.\n- function: set return.agent_flight_state = \"FLYING\".\n- MUST output: {\"patch_ops\":[{\"op\":\"set\",\"path\":\"return.agent_flight_state\",\"value\":\"FLYING\"}]}\n\n[SELECTION POLICY]\n- If precondition holds, you MUST output set_flying.\n- Else output {\"patch_ops\":[]}.",
+    "subtask_status_schema": {
+      "core": {
+        "subtask_type": "QUAD_TAKEOFF",
+        "status": "running|done|failed",
+        "step_count": 0
+      },
+      "context": {
+        "agent_class": null,
+        "agent_id": null,
+        "agent_position": null
+      },
+      "memory": {
+        "agent_class": null,
+        "agent_id": null,
+        "takeoff_surface": null
+      },
+      "return": {
+        "agent_flight_state": null,
+        "subtask_accomplished": false
+      }
+    }
+  },
+
+  "QUAD_FLY_TO_RECEP": {
+    "__comment__": "Quadrotor flies (possibly across rooms) until it is ABOVE the target receptacle. Multi-step. Relies on the env action enumerator: legal [movetowards] actions are already filtered by door-state and current room.",
+    "goal_template": "fly until ABOVE <target_receptacle_class>(<target_receptacle_id>)",
+    "output_para": ["agent_above_target", "agent_current_room_id", "agent_position"],
+    "done_when_all": ["return.agent_above_target"],
+    "base_actions": [
+      {
+        "action": "[movetowards] <target_receptacle>",
+        "when": "FIRST CHOICE: if the legal action list contains [movetowards] <{memory.target_receptacle_class}>({memory.target_receptacle_id}), you MUST output exactly that."
+      },
+      {
+        "action": "[movetowards] <room>",
+        "when": "SECOND CHOICE (when target is not yet in the current room's legal list): pick any [movetowards] <room>(<room_id>) from the legal action list. The env only exposes adjacent rooms reachable through OPEN/OPEN_FOREVER doors, so any such option is a valid step along some path toward the target."
+      }
+    ],
+    "executor_sys_rules": [
+      "Final goal of this subtask: end up with observation containing 'I am ABOVE the <{memory.target_receptacle_class}>(<{memory.target_receptacle_id}>)'.",
+      "Decision order: (1) If the legal action list contains [movetowards] <{memory.target_receptacle_class}>({memory.target_receptacle_id}), you MUST output it. (2) Otherwise output any [movetowards] <room>(<room_id>) from the legal action list.",
+      "Do NOT output [land_on] or [takeoff_from] in this subtask. NEVER output fake actions like 'complete subtask'."
+    ],
+    "caller_mapping": {
+      "inject_context_from_task_state": [
+        {"from": "agent_class", "to": "agent_class"},
+        {"from": "agent_id", "to": "agent_id"},
+        {"from": "target_receptacle", "to": "target_receptacle_class"},
+        {"from": "target_receptacle_id", "to": "target_receptacle_id"},
+        {"from": "agent_current_room_id", "to": "agent_current_room_id"}
+      ],
+      "map_context_to_memory": [
+        {"from": "agent_class", "to": "agent_class"},
+        {"from": "agent_id", "to": "agent_id"},
+        {"from": "target_receptacle_class", "to": "target_receptacle_class"},
+        {"from": "target_receptacle_id", "to": "target_receptacle_id"}
+      ]
+    },
+    "patch_ops_policy": {
+      "allowed": [
+        {"op": "set", "path": "context.agent_current_room_id"},
+        {"op": "set", "path": "context.agent_position"},
+        {"op": "set", "path": "return.agent_above_target"},
+        {"op": "set", "path": "return.agent_current_room_id"},
+        {"op": "set", "path": "return.agent_position"}
+      ]
+    },
+    "sys_output_format": "NOTE: Output JSON only. You do NOT output context.\n\n[OUTPUT PROTOCOL]\n- Return JSON ONLY.\n- Top-level MUST be an object with key \"patch_ops\" (a list).\n- Even for ONE op, you MUST wrap it: {\"patch_ops\":[{...}]}\n- If you output a single op object without \"patch_ops\", the program will DISCARD your update.\n- For set_above_target you SHOULD emit three set ops in the same list.\n\n[OUTPUT FORMAT]\n{\n  \"patch_ops\": [\n    {\n      \"op\": \"set\",\n      \"path\": \"return.agent_above_target | return.agent_current_room_id | return.agent_position | context.agent_current_room_id | context.agent_position\",\n      \"value\": \"<json value>\"\n    }\n  ]\n}",
+    "operation_space": "set_above_target:\n- precondition: OBSERVATION contains 'I am ABOVE the <{memory.target_receptacle_class}>(<{memory.target_receptacle_id}>)'.\n- function:\n  - set return.agent_above_target = true.\n  - set return.agent_position = 'above <{memory.target_receptacle_class}>(<{memory.target_receptacle_id}>)'.\n  - set return.agent_current_room_id = <room_id> parsed from OBSERVATION 'Now I am in the <room_class>(<room_id>).'.\n- MUST output all three set ops in one patch_ops list, e.g.:\n  {\"patch_ops\":[\n    {\"op\":\"set\",\"path\":\"return.agent_above_target\",\"value\":true},\n    {\"op\":\"set\",\"path\":\"return.agent_position\",\"value\":\"above <dining table>(13)\"},\n    {\"op\":\"set\",\"path\":\"return.agent_current_room_id\",\"value\":4}\n  ]}\n\nupdate_room:\n- precondition:\n  - OBSERVATION contains 'Now I am in the <{room_class}>(<{room_id}>). In this room, I can see:'.\n  - <{room_id}> parsed from that line differs from context.agent_current_room_id.\n- function: set context.agent_current_room_id = <room_id>.\n- MUST output: {\"patch_ops\":[{\"op\":\"set\",\"path\":\"context.agent_current_room_id\",\"value\":<room_id>}]}\n\n[SELECTION POLICY]\n- Evaluate set_above_target FIRST. If its precondition holds, you MUST output the three-op set_above_target list (NOT only update_room).\n- Else evaluate update_room. If its precondition holds, output update_room.\n- Else output {\"patch_ops\":[]}.",
+    "subtask_status_schema": {
+      "core": {
+        "subtask_type": "QUAD_FLY_TO_RECEP",
+        "status": "running|done|failed",
+        "step_count": 0
+      },
+      "context": {
+        "agent_class": null,
+        "agent_id": null,
+        "target_receptacle_class": null,
+        "target_receptacle_id": null,
+        "agent_current_room_id": null,
+        "agent_position": null
+      },
+      "memory": {
+        "agent_class": null,
+        "agent_id": null,
+        "target_receptacle_class": null,
+        "target_receptacle_id": null
+      },
+      "return": {
+        "agent_above_target": false,
+        "agent_current_room_id": null,
+        "agent_position": null,
+        "subtask_accomplished": false
+      }
+    }
+  },
+
+  "QUAD_LAND_ON_RECEP": {
+    "__comment__": "Quadrotor descends from FLYING + ABOVE target to LAND + ON target. 1 env step.",
+    "goal_template": "land on <target_receptacle_class>(<target_receptacle_id>)",
+    "output_para": ["landed_on_target"],
+    "done_when_all": ["return.landed_on_target"],
+    "base_actions": [
+      {
+        "action": "[land_on] <target_receptacle>",
+        "when": "You MUST output exactly: [land_on] <{memory.target_receptacle_class}>({memory.target_receptacle_id})."
+      }
+    ],
+    "executor_sys_rules": [
+      "You MUST output exactly one action: [land_on] <{memory.target_receptacle_class}>({memory.target_receptacle_id}). No other actions are valid in this subtask.",
+      "Do NOT output [takeoff_from] or [movetowards]. NEVER output fake actions like 'complete subtask'."
+    ],
+    "caller_mapping": {
+      "inject_context_from_task_state": [
+        {"from": "agent_class", "to": "agent_class"},
+        {"from": "agent_id", "to": "agent_id"},
+        {"from": "target_receptacle", "to": "target_receptacle_class"},
+        {"from": "target_receptacle_id", "to": "target_receptacle_id"}
+      ],
+      "map_context_to_memory": [
+        {"from": "agent_class", "to": "agent_class"},
+        {"from": "agent_id", "to": "agent_id"},
+        {"from": "target_receptacle_class", "to": "target_receptacle_class"},
+        {"from": "target_receptacle_id", "to": "target_receptacle_id"}
+      ]
+    },
+    "patch_ops_policy": {
+      "allowed": [
+        {"op": "set", "path": "return.landed_on_target"}
+      ]
+    },
+    "sys_output_format": "NOTE: Output JSON only. You do NOT output context.\n\n[OUTPUT PROTOCOL]\n- Return JSON ONLY.\n- Top-level MUST be an object with key \"patch_ops\" (a list).\n- Even for ONE op, you MUST wrap it: {\"patch_ops\":[{...}]}\n- If you output a single op object without \"patch_ops\", the program will DISCARD your update.\n\n[OUTPUT FORMAT]\n{\n  \"patch_ops\": [\n    {\n      \"op\": \"set\",\n      \"path\": \"return.landed_on_target\",\n      \"value\": true\n    }\n  ]\n}",
+    "operation_space": "set_landed:\n- precondition:\n  - OBSERVATION contains 'Now my state is: LAND'.\n  - OBSERVATION contains 'I am ON the <{memory.target_receptacle_class}>(<{memory.target_receptacle_id}>)'.\n- function: set return.landed_on_target = true.\n- MUST output: {\"patch_ops\":[{\"op\":\"set\",\"path\":\"return.landed_on_target\",\"value\":true}]}\n\n[SELECTION POLICY]\n- If precondition holds, you MUST output set_landed.\n- Else output {\"patch_ops\":[]}.",
+    "subtask_status_schema": {
+      "core": {
+        "subtask_type": "QUAD_LAND_ON_RECEP",
+        "status": "running|done|failed",
+        "step_count": 0
+      },
+      "context": {
+        "agent_class": null,
+        "agent_id": null,
+        "target_receptacle_class": null,
+        "target_receptacle_id": null
+      },
+      "memory": {
+        "agent_class": null,
+        "agent_id": null,
+        "target_receptacle_class": null,
+        "target_receptacle_id": null
+      },
+      "return": {
+        "landed_on_target": false,
+        "subtask_accomplished": false
+      }
+    }
+  }
+}
